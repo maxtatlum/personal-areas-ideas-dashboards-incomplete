@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Дашборд: Парадигма вечной незавершёнки</title>
+    <!-- Google Fonts & простые стили -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #f1efe7;
+            font-family: 'Inter', sans-serif;
+            padding: 2rem 1.5rem;
+            color: #1e1b18;
+        }
+
+        /* контейнер дашборда */
+        .dashboard {
+            max-width: 1280px;
+            margin: 0 auto;
+        }
+
+        /* хедер с настроением */
+        .dashboard-header {
+            margin-bottom: 2rem;
+            text-align: left;
+            border-left: 5px solid #d97742;
+            padding-left: 1.25rem;
+        }
+
+        .dashboard-header h1 {
+            font-size: 1.9rem;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            color: #2c241e;
+        }
+
+        .dashboard-header h1 span {
+            background: #e9e3d8;
+            padding: 0.1rem 0.4rem;
+            border-radius: 20px;
+            font-size: 1rem;
+            font-weight: 400;
+            vertical-align: middle;
+            margin-left: 0.5rem;
+        }
+
+        .sub {
+            font-size: 0.9rem;
+            color: #7f6e5e;
+            margin-top: 0.5rem;
+            font-weight: 400;
+            max-width: 600px;
+        }
+
+        /* сетка карточек */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        /* универсальная карточка */
+        .card {
+            background: #ffffffdd;
+            backdrop-filter: blur(2px);
+            background: #fffef9;
+            border-radius: 32px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.03), 0 2px 4px rgba(0, 0, 0, 0.05);
+            padding: 1.4rem 1.5rem 1.8rem;
+            transition: all 0.2s;
+            border: 1px solid #f0e7db;
+        }
+
+        .card-title {
+            font-weight: 600;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #b87c4f;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .metric-value {
+            font-size: 2.7rem;
+            font-weight: 700;
+            color: #3a2c23;
+            line-height: 1.1;
+            margin-bottom: 0.5rem;
+        }
+
+        .metric-desc {
+            font-size: 0.85rem;
+            color: #8d7a68;
+            border-top: 1px solid #ede3d7;
+            margin-top: 0.8rem;
+            padding-top: 0.8rem;
+        }
+
+        /* индикаторы прогресса — для незавершённости */
+        .progress-bar-bg {
+            background: #ede3d9;
+            border-radius: 40px;
+            height: 10px;
+            width: 100%;
+            overflow: hidden;
+            margin: 0.8rem 0;
+        }
+
+        .progress-fill {
+            background: #d98f5c;
+            width: 0%;
+            height: 100%;
+            border-radius: 40px;
+        }
+
+        .tag-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 0.8rem;
+        }
+
+        .tag {
+            background: #f4ede5;
+            padding: 0.3rem 0.7rem;
+            border-radius: 40px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: #6e5b48;
+        }
+
+        .big-number-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-top: 0.4rem;
+        }
+
+        .trend-icon {
+            font-size: 1.3rem;
+        }
+
+        hr {
+            margin: 1rem 0;
+            border: none;
+            border-top: 1px solid #efe3d7;
+        }
+
+        .quote-block {
+            background: #fbf7f0;
+            padding: 1.2rem;
+            border-radius: 24px;
+            font-style: normal;
+            font-size: 0.9rem;
+            color: #4f3f32;
+            border-left: 4px solid #d97742;
+        }
+
+        .button-mimic {
+            background: #2c241e;
+            color: white;
+            border: none;
+            padding: 0.6rem 1.2rem;
+            border-radius: 60px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            width: 100%;
+            cursor: default;
+            text-align: center;
+            transition: 0.1s;
+            opacity: 0.8;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 2rem;
+            font-size: 0.7rem;
+            color: #b7a690;
+        }
+
+        @media (max-width: 680px) {
+            body {
+                padding: 1rem;
+            }
+            .metric-value {
+                font-size: 2.2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="dashboard">
+    <div class="dashboard-header">
+        <h1>📋 панель НЕзавершёнки <span>beta вечного движения</span></h1>
+        <div class="sub">⚡ «Мы никогда не останавливаемся. Всё идём, идём... а сзади — завершёнка, спереди — тонны недоделанного»</div>
+    </div>
+
+    <div class="grid">
+        <!-- карточка: Отложенные задачи + точки Б -->
+        <div class="card">
+            <div class="card-title">
+                <span>📌</span> ОТЛОЖЕННЫЕ ТОЧКИ Б
+            </div>
+            <div class="metric-value">∞ 24<span style="font-size: 1.2rem;">+</span></div>
+            <div class="progress-bar-bg"><div class="progress-fill" style="width: 87%;"></div></div>
+            <div class="big-number-row">
+                <span style="font-weight: 500;">задачи в бэклоге</span>
+                <span style="color:#d97742;">+3 сегодня</span>
+            </div>
+            <div class="metric-desc">
+                🧩 Ненаписанная музыка · Непрочитанная книга · Непоезженный отпуск · Недосказанные фразы
+            </div>
+            <div class="tag-group">
+                <span class="tag">съездить куда-то</span>
+                <span class="tag">куплю "вот это"</span>
+                <span class="tag">точка Б не финал</span>
+            </div>
+        </div>
+
+        <!-- карточка: Индекс усталости + запрет признания -->
+        <div class="card">
+            <div class="card-title">
+                <span>⚡</span> ПРИЗНАНИЕ УСТАЛОСТИ
+            </div>
+            <div class="metric-value">🔇 ЗАПРЕЩЕНО</div>
+            <div class="big-number-row">
+                <span>реальный уровень усталости</span>
+                <span style="font-weight:700;">94%</span>
+            </div>
+            <div class="progress-bar-bg"><div class="progress-fill" style="width: 94%; background:#ab8a6c;"></div></div>
+            <div class="metric-desc">
+                ⚠️ «Как только скажешь себе, что устал — тут же дальше не пойдёшь и не сканешь».<br>
+                → Признание заблокировано системой.
+            </div>
+            <div style="margin-top:12px; font-size:0.8rem; background:#f9f2ea; border-radius:30px; padding: 6px 10px; text-align:center;">
+                😮‍💨 но молния мысли: «Я просто устал»
+            </div>
+        </div>
+
+        <!-- карточка: Колесо незавершённых дел (список из текста) -->
+        <div class="card">
+            <div class="card-title">
+                <span>🎭</span> НЕДОДЕЛАННЫЙ МИР
+            </div>
+            <div style="display:flex; flex-direction: column; gap: 0.5rem;">
+                <div><span style="font-weight:600;">недоделанная поделка</span> <span style="float:right;">⏳ 73%</span>
+                    <div class="progress-bar-bg" style="margin:0.2rem 0 0 0;"><div class="progress-fill" style="width:73%; background:#c1a084;"></div></div>
+                </div>
+                <div><span style="font-weight:600;">не написанная музыка</span> <span style="float:right;">⏳ 88%</span>
+                    <div class="progress-bar-bg" style="margin:0.2rem 0 0 0;"><div class="progress-fill" style="width:88%;"></div></div>
+                </div>
+                <div><span style="font-weight:600;">недосказанная мысль/фраза</span> <span style="float:right;">∞%</span>
+                    <div class="progress-bar-bg" style="margin:0.2rem 0 0 0;"><div class="progress-fill" style="width:96%;"></div></div>
+                </div>
+                <div><span style="font-weight:600;">не прочитанная книга</span> <span style="float:right;">📚 5 шт</span>
+                    <div class="progress-bar-bg" style="margin:0.2rem 0 0 0;"><div class="progress-fill" style="width:67%;"></div></div>
+                </div>
+            </div>
+            <div class="metric-desc" style="margin-top:12px;">
+                «Живем как будто в недоделанном мире, печчно недоделано»
+            </div>
+        </div>
+    </div>
+
+    <!-- второй ряд: метрика "незавершёнка впереди", Пригорочек покоя + глобальный счётчик -->
+    <div class="grid">
+        <div class="card">
+            <div class="card-title">
+                <span>🚶</span> ВЕЧНОЕ ДВИЖЕНИЕ
+            </div>
+            <div class="metric-value">➡️➡️➡️➡️</div>
+            <div class="big-number-row">
+                <span>За нами — завершёнка</span>
+                <span>✅ 142 дела</span>
+            </div>
+            <div class="big-number-row">
+                <span>Впереди — незавершёнка</span>
+                <span style="color:#b45a33;">🔥 317+ задач</span>
+            </div>
+            <hr>
+            <div class="quote-block">
+                «Мы никогда не останавливаемся. У нас постоянно есть отложенные задачи, отложенные точки Б... Обратно идти по Тиньку? Бессмысленно. Только вперёд»
+            </div>
+            <div class="tag-group" style="margin-top: 12px;">
+                <span class="tag">нельзя стоп</span>
+                <span class="tag">накопление "ещё"</span>
+            </div>
+        </div>
+
+        <!-- карточка: ПРИГОРОЧЕК ПОКОЯ (желанная остановка) -->
+        <div class="card">
+            <div class="card-title">
+                <span>🌞</span> ПРИГОРОЧЕК — АЛЬТЕРНАТИВА
+            </div>
+            <div class="metric-value" style="font-size: 2rem;">⛰️ посидеть · вдохнуть</div>
+            <div class="progress-bar-bg"><div class="progress-fill" style="width: 8%; background: #96b38a;"></div></div>
+            <div class="metric-desc">
+                <strong>8%</strong> реализации желанной паузы. Пример из жизни: «посидел на солнечном пригорочке — прошла молния мысли: как я устал».
+            </div>
+            <div class="quote-block" style="margin-top: 10px; background:#eef3e8;">
+                🌿 «Вот так хочется тоже посидеть — скопить всё, остановиться, без вечного "ещё"»
+            </div>
+            <div class="button-mimic" style="background:#7f9172; margin-top: 1rem;">
+                🧘 отложить незавершёнку на 10 минут? (мечта)
+            </div>
+        </div>
+
+        <!-- виджет: НАКОПЛЕНИЕ и ПСИХОЛОГИЯ "ещё куплю, съезжу" -->
+        <div class="card">
+            <div class="card-title">
+                <span>🔄</span> МЕХАНИЗМ «ЕЩЁ»
+            </div>
+            <div class="metric-value">+1 иллюзия / день</div>
+            <div class="tag-group">
+                <span class="tag">вот ещё куплю</span>
+                <span class="tag">вот ещё съезжу</span>
+                <span class="tag">вот тут доделаю</span>
+            </div>
+            <div class="progress-bar-bg mt-2"><div class="progress-fill" style="width: 100%; background:#c97e52;"></div></div>
+            <div class="metric-desc">
+                <strong>Накопление незавершённых обещаний себе</strong><br>
+                Каждый новый «ещё» укрепляет парадигму. Круг не разорвать, пока не признать усталость. Но признание = риск не двигаться.
+            </div>
+            <div style="margin-top: 12px; font-size: 13px; background:#f5ede4; border-radius: 20px; padding: 8px; text-align:center;">
+                📉 индекс остановки: 0.3 / 10 (почти недостижим)
+            </div>
+        </div>
+    </div>
+
+    <!-- дополнительный ряд: суть + метрика завершенного / незавершенного баланса -->
+    <div class="grid">
+        <div class="card" style="grid-column: span 1;">
+            <div class="card-title">🧠 ГЛАВНЫЙ ПАРАДОКС</div>
+            <div>«Мы живём в состоянии, где мир всегда недоделан. Но внутри теплится желание: сесть на пригорочек, скопить всё и не бежать дальше».</div>
+            <div class="big-number-row" style="margin-top:12px;">
+                <span>✅ сделанное (завершёнка)</span>
+                <span>38% от возможного</span>
+            </div>
+            <div class="big-number-row">
+                <span>🟠 незавершённое</span>
+                <span style="font-weight:700;">62% накопленного</span>
+            </div>
+            <div class="progress-bar-bg"><div class="progress-fill" style="width:62%; background:#bc7348;"></div></div>
+        </div>
+        <div class="card" style="background: #fefaf5;">
+            <div class="card-title">🎯 ЦИТАТА ДНЯ (из внутреннего монолога)</div>
+            <div style="font-size: 0.95rem; line-height:1.4;">«У нас постоянно есть отложенные какие-то задачи, отложенные точки B наши. Точка Б основная... Идём, идём, идём. А хочется — как я на пригорочке посидел».</div>
+            <div style="margin-top: 1rem;">
+                <div class="tag-group"><span class="tag">недоделанная поделка</span><span class="tag">не поезженный отпуск</span><span class="tag">недоделанность как норма</span></div>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        🧩 дашборд по мотивам решения о «парадигме вечной незавершёнки» / пригорочек покоя отложен, но не забыт.
+    </footer>
+</div>
+
+<!-- небольшой скрипт для анимации цифр (лёгкое оживление, просто для настроения) -->
+<script>
+    (function() {
+        // Небольшой эффект "пульсации" для метрики "отложенных задач" — чисто декорация
+        const metricDiv = document.querySelector('.metric-value');
+        if(metricDiv && metricDiv.innerText.includes('∞')) {
+            setInterval(() => {
+                const el = metricDiv;
+                if(el.style.opacity === '0.7') el.style.opacity = '1';
+                else el.style.opacity = '0.7';
+                setTimeout(() => { if(el) el.style.opacity = '1'; }, 400);
+            }, 2000);
+        }
+        // Добавим счетчик недоделанных мыслей (динамический каждые 5 секунд +1 к незавершёнке в первом блоке)
+        let counter = 24;
+        const taskSpan = document.querySelector('.big-number-row span:first-child + span');
+        if(taskSpan && taskSpan.innerText.includes('сегодня')) {
+            setInterval(() => {
+                counter++;
+                const targetSpan = document.querySelector('.card:first-child .big-number-row span:last-child');
+                if(targetSpan) targetSpan.innerText = `+${counter - 23} сегодня`;
+                const progressFill = document.querySelector('.card:first-child .progress-fill');
+                if(progressFill) {
+                    let newWidth = Math.min(96, 87 + (counter-24)*0.2);
+                    progressFill.style.width = newWidth + '%';
+                }
+            }, 8000);
+        }
+        // Эффект для пригорочка: увеличиваем "желание" при наведении
+        const pauseCard = document.querySelector('.card .button-mimic');
+        if(pauseCard) {
+            pauseCard.addEventListener('mouseenter', () => {
+                pauseCard.style.background = '#a9bba0';
+                pauseCard.style.cursor = 'default';
+            });
+            pauseCard.addEventListener('mouseleave', () => {
+                pauseCard.style.background = '#7f9172';
+            });
+        }
+    })();
+</script>
+</body>
+</html>
