@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Расходы по дому — дашборд</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #f5f3ee;
+      --card: #fffef9;
+      --text: #2c241e;
+      --muted: #7f6e5e;
+      --border: #e8ddd0;
+      --accent: #3d6b4f;
+      --accent2: #d97742;
+      --success: #3d6b4f;
+      --warning: #c47a2c;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 1.5rem; }
+    header { margin-bottom: 1.5rem; border-left: 4px solid var(--accent); padding-left: 1rem; }
+    header h1 { font-size: 1.75rem; font-weight: 600; }
+    header p { color: var(--muted); font-size: 0.9rem; margin-top: 0.35rem; }
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+    .stat { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 1rem 1.25rem; }
+    .stat .label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+    .stat .value { font-size: 1.5rem; font-weight: 700; margin-top: 0.25rem; }
+    .stat.success .value { color: var(--success); }
+    .stat.warning .value { color: var(--warning); }
+    .filters { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 1.25rem; margin-bottom: 1.5rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; align-items: end; }
+    .field label { display: block; font-size: 0.75rem; color: var(--muted); margin-bottom: 0.35rem; text-transform: uppercase; letter-spacing: 0.04em; }
+    .field input, .field select { width: 100%; padding: 0.5rem 0.65rem; border: 1px solid var(--border); border-radius: 8px; font-size: 0.9rem; background: #fff; }
+    .toggle-row { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; }
+    .charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 1.25rem; }
+    .card h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 1rem; font-weight: 600; }
+    .budget-bar { height: 28px; border-radius: 14px; overflow: hidden; display: flex; background: #ede3d9; margin: 0.5rem 0; }
+    .budget-fact { background: var(--success); }
+    .budget-plan { background: var(--warning); }
+    .budget-legend { display: flex; gap: 1.5rem; font-size: 0.8rem; color: var(--muted); margin-top: 0.5rem; }
+    .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 0.35rem; vertical-align: middle; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    th, td { padding: 0.55rem 0.65rem; text-align: left; border-bottom: 1px solid var(--border); }
+    th { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); position: sticky; top: 0; background: var(--card); }
+    td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    tr.paid td:first-child { border-left: 3px solid var(--success); }
+    tr.planned td:first-child { border-left: 3px solid var(--warning); }
+    .table-wrap { max-height: 480px; overflow: auto; border: 1px solid var(--border); border-radius: 12px; }
+    footer { text-align: center; font-size: 0.75rem; color: var(--muted); margin-top: 2rem; padding-bottom: 1rem; }
+    .filter-note { font-size: 0.8rem; color: var(--muted); grid-column: 1 / -1; }
+    @media (max-width: 600px) { .wrap { padding: 1rem; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Расходы по дому</h1>
+      <p>Экспорт Notion · 77 статей · ноябрь 2020 — февраль 2022</p>
+    </header>
+
+    <div class="stats" id="stats"></div>
+
+    <div class="filters">
+      <div class="field"><label>Категория</label><select id="tagFilter"><option value="all">Все</option></select></div>
+      <div class="field"><label>Год</label><select id="yearFilter"><option value="all">Все</option></select></div>
+      <div class="field"><label>Статус</label><select id="statusFilter">
+        <option value="all">Все</option><option value="paid">Оплачено</option><option value="planned">План</option>
+      </select></div>
+      <div class="field"><label>Поиск</label><input id="search" type="search" placeholder="Леруа, скважина…"></div>
+      <div class="field"><label>&nbsp;</label><div class="toggle-row"><input type="checkbox" id="includePlanned" checked> Показывать плановые</div></div>
+      <div class="filter-note" id="filterNote"></div>
+    </div>
+
+    <div class="charts">
+      <div class="card"><h2>Структура по категориям · факт, ₽</h2><canvas id="pieChart" height="220"></canvas></div>
+      <div class="card"><h2>Расходы по годам · факт, ₽</h2><canvas id="barChart" height="220"></canvas></div>
+    </div>
+
+    <div class="card" style="margin-bottom:1.5rem">
+      <h2>Бюджет: оплачено vs план</h2>
+      <div class="budget-bar" id="budgetBar"></div>
+      <div class="budget-legend">
+        <span><span class="dot" style="background:var(--success)"></span>Оплачено</span>
+        <span><span class="dot" style="background:var(--warning)"></span>В плане</span>
+      </div>
+    </div>
+
+    <div class="charts">
+      <div class="card"><h2>Топ-10 трат · факт, ₽</h2><canvas id="topChart" height="280"></canvas></div>
+      <div class="card"><h2>Накопительные расходы · ₽</h2><canvas id="lineChart" height="280"></canvas></div>
+    </div>
+
+    <div class="card" style="margin-top:1.5rem">
+      <h2>Все статьи <span id="tableCount"></span></h2>
+      <div class="table-wrap">
+        <table><thead><tr><th>Покупка</th><th>Категория</th><th>Факт</th><th>План</th><th>Дата</th><th>Статус</th></tr></thead><tbody id="tableBody"></tbody></table>
+      </div>
+    </div>
+
+    <footer>Источник: Notion «Расходы» · <a href="https://github.com/maxtatlum/personal-areas-ideas-dashboards-incomplete">GitHub</a></footer>
+  </div>
+
+  <script>
+    const EXPENSES = [{"name": "Участок земли", "tag": "Участок", "fact": 750000.0, "plan": 0, "date": "01/11/2020", "year": "2020", "status": "paid"}, {"name": "Аванс за забор", "tag": "Инфрастр.", "fact": 18000.0, "plan": 0, "date": "12/12/2020", "year": "2020", "status": "paid"}, {"name": "Демонтаж (1 контейнер)", "tag": "Участок", "fact": 39150.0, "plan": 0, "date": "20/12/2020", "year": "2020", "status": "paid"}, {"name": "Демонтаж (2 контейнер)", "tag": "Участок", "fact": 39150.0, "plan": 0, "date": "21/12/2020", "year": "2020", "status": "paid"}, {"name": "Демонтаж (3 контейнер)", "tag": "Участок", "fact": 39150.0, "plan": 0, "date": "22/12/2020", "year": "2020", "status": "paid"}, {"name": "Демонтаж (4 контейнер)", "tag": "Участок", "fact": 50000.0, "plan": 0, "date": "23/12/2020", "year": "2020", "status": "paid"}, {"name": "Забор (остаток суммы)", "tag": "Инфрастр.", "fact": 169000.0, "plan": 0, "date": "23/12/2020", "year": "2020", "status": "paid"}, {"name": "Фундамент", "tag": "Дом", "fact": 88000.0, "plan": 0, "date": "09/01/2021", "year": "2021", "status": "paid"}, {"name": "Каркас дома-1", "tag": "Дом", "fact": 500000.0, "plan": 0, "date": "28/01/2021", "year": "2021", "status": "paid"}, {"name": "Манипулятор", "tag": "Дом", "fact": 12000.0, "plan": 0, "date": "28/01/2021", "year": "2021", "status": "paid"}, {"name": "Каркас дома-2", "tag": "Дом", "fact": 210000.0, "plan": 0, "date": "28/01/2021", "year": "2021", "status": "paid"}, {"name": "Трактор / расчистка", "tag": "Инфрастр.", "fact": 3000.0, "plan": 0, "date": "03/02/2021", "year": "2021", "status": "paid"}, {"name": "Трактор / расчистка", "tag": "Инфрастр.", "fact": 2500.0, "plan": 0, "date": "10/02/2021", "year": "2021", "status": "paid"}, {"name": "Уличный туалет", "tag": "Инфрастр.", "fact": 50000.0, "plan": 0, "date": "10/02/2021", "year": "2021", "status": "paid"}, {"name": "Краска для домика внутр.", "tag": "Домик", "fact": 3200.0, "plan": 0, "date": "21/03/2021", "year": "2021", "status": "paid"}, {"name": "Лопаты 2 шт.", "tag": "Инвентарь", "fact": 1300.0, "plan": 0, "date": "22/04/2021", "year": "2021", "status": "paid"}, {"name": "Грабли", "tag": "Инвентарь", "fact": 400.0, "plan": 0, "date": "21/04/2021", "year": "2021", "status": "paid"}, {"name": "Электрика со столба в дом", "tag": "Коммуникации", "fact": 52200.0, "plan": 0, "date": "23/05/2021", "year": "2021", "status": "paid"}, {"name": "Шланг / Подушки / Занавески...", "tag": "Домик", "fact": 8000.0, "plan": 0, "date": "19/06/2021", "year": "2021", "status": "paid"}, {"name": "Скважина бурение", "tag": "Коммуникации", "fact": 123200.0, "plan": 0, "date": "19/06/2021", "year": "2021", "status": "paid"}, {"name": "Скважина обустройство / ввод", "tag": "Коммуникации", "fact": 120000.0, "plan": 0, "date": "25/06/2021", "year": "2021", "status": "paid"}, {"name": "Дренаж / Отмостка / Ливневка", "tag": "Коммуникации", "fact": 274000.0, "plan": 0, "date": "02/06/2021", "year": "2021", "status": "paid"}, {"name": "Септик", "tag": "Коммуникации", "fact": 200000.0, "plan": 0, "date": "25/06/2021", "year": "2021", "status": "paid"}, {"name": "Бетонные работы", "tag": "Инфрастр.", "fact": 498000.0, "plan": 0, "date": "14/07/2021", "year": "2021", "status": "paid"}, {"name": "Мангал, столы, лавки, очаг", "tag": "Мебель", "fact": 36000.0, "plan": 0, "date": "17/07/2021", "year": "2021", "status": "paid"}, {"name": "Шезлонги", "tag": "Мебель", "fact": 8000.0, "plan": 0, "date": "20/07/2021", "year": "2021", "status": "paid"}, {"name": "Лопаты зимние 2 шт.", "tag": "Инвентарь", "fact": 1200.0, "plan": 0, "date": "29/01/2022", "year": "2022", "status": "paid"}, {"name": "Чистка разовая снегом", "tag": "Инфрастр.", "fact": 2000.0, "plan": 0, "date": "29/01/2022", "year": "2022", "status": "paid"}, {"name": "Месячная чистка переулка", "tag": "Инфрастр.", "fact": 3000.0, "plan": 0, "date": "29/01/2022", "year": "2022", "status": "paid"}, {"name": "Плита OSB-3", "tag": "Дом", "fact": 32896.0, "plan": 0, "date": "29/01/2022", "year": "2022", "status": "paid"}, {"name": "Гидро-паро изоляция", "tag": "Дом", "fact": 4216.0, "plan": 0, "date": "29/01/2022", "year": "2022", "status": "paid"}, {"name": "Утеплитель Кнауф", "tag": "Дом", "fact": 92500.0, "plan": 0, "date": "29/01/2022", "year": "2022", "status": "paid"}, {"name": "Паро-изоляция", "tag": "Дом", "fact": 8250.0, "plan": 0, "date": "29/01/2022", "year": "2022", "status": "paid"}, {"name": "Доставка 1 партии мат.", "tag": "Дом", "fact": 10000.0, "plan": 0, "date": "29/01/2022", "year": "2022", "status": "paid"}, {"name": "Покупки на базе в Солн.", "tag": "Дом", "fact": 530503.0, "plan": 0, "date": "30/01/2022", "year": "2022", "status": "paid"}, {"name": "Леруа / Касса", "tag": "Дом", "fact": 57358.0, "plan": 0, "date": "30/01/2022", "year": "2022", "status": "paid"}, {"name": "Леруа / доставка", "tag": "Дом", "fact": 351055.0, "plan": 0, "date": "30/01/2022", "year": "2022", "status": "paid"}, {"name": "Матрас надувной", "tag": "Мебель", "fact": 1120.0, "plan": 0, "date": "30/01/2022", "year": "2022", "status": "paid"}, {"name": "Раскладушка", "tag": "Мебель", "fact": 2000.0, "plan": 0, "date": "30/01/2022", "year": "2022", "status": "paid"}, {"name": "Работа бригады -1", "tag": "Дом", "fact": 31000.0, "plan": 0, "date": "31/01/2022", "year": "2022", "status": "paid"}, {"name": "Мелочевка для отделки", "tag": "Дом", "fact": 19000.0, "plan": 0, "date": "03/02/2022", "year": "2022", "status": "paid"}, {"name": "Мелочевка для отделки", "tag": "Дом", "fact": 15000.0, "plan": 0, "date": "03/02/2022", "year": "2022", "status": "paid"}, {"name": "Работа бригады - 2", "tag": "Дом", "fact": 250000.0, "plan": 0, "date": "05/02/2022", "year": "2022", "status": "paid"}, {"name": "Закупка дерева на базе", "tag": "Дом", "fact": 64696.0, "plan": 0, "date": "05/02/2022", "year": "2022", "status": "paid"}, {"name": "Леруа / Доставка", "tag": "Дом", "fact": 54190.0, "plan": 0, "date": "05/02/2022", "year": "2022", "status": "paid"}, {"name": "Чеки Николая", "tag": "Дом", "fact": 34000.0, "plan": 0, "date": "05/02/2022", "year": "2022", "status": "paid"}, {"name": "Краска для лестницы", "tag": "Дом", "fact": 1237.0, "plan": 0, "date": "05/02/2022", "year": "2022", "status": "paid"}, {"name": "Леруа / Касса", "tag": "Дом", "fact": 29001.0, "plan": 0, "date": "05/02/2022", "year": "2022", "status": "paid"}, {"name": "Светильники малые", "tag": "Аксессуары", "fact": 5083.0, "plan": 0, "date": "06/02/2022", "year": "2022", "status": "paid"}, {"name": "Светильники большие", "tag": "Аксессуары", "fact": 9495.0, "plan": 0, "date": "06/02/2022", "year": "2022", "status": "paid"}, {"name": "Мелочевка для отделки", "tag": "Дом", "fact": 10000.0, "plan": 0, "date": "08/02/2022", "year": "2022", "status": "paid"}, {"name": "Докупка утеплителя", "tag": "Дом", "fact": 15120.0, "plan": 0, "date": "11/02/2022", "year": "2022", "status": "paid"}, {"name": "Печь / Дымоход / Доставка", "tag": "Дом", "fact": 160490.0, "plan": 0, "date": "12/02/2022", "year": "2022", "status": "paid"}, {"name": "Расконсервация септика", "tag": "Коммуникации", "fact": 4950.0, "plan": 0, "date": "12/02/2022", "year": "2022", "status": "paid"}, {"name": "Расконсервация скважины", "tag": "Коммуникации", "fact": 0.0, "plan": 0, "date": "12/02/2022", "year": "2022", "status": "empty"}, {"name": "Работа бригады", "tag": "Дом", "fact": 250000.0, "plan": 0, "date": "12/02/2022", "year": "2022", "status": "paid"}, {"name": "Закупка леса на базе", "tag": "Дом", "fact": 55508.0, "plan": 0, "date": "12/02/2022", "year": "2022", "status": "paid"}, {"name": "Леруа / Доставка", "tag": "Дом", "fact": 9315.0, "plan": 0, "date": "12/02/2022", "year": "2022", "status": "paid"}, {"name": "Леруа / На кассе", "tag": "Дом", "fact": 9185.0, "plan": 0, "date": "12/02/2022", "year": "2022", "status": "paid"}, {"name": "Работа бригады / Финал", "tag": "Дом", "fact": 0, "plan": 285000.0, "date": "", "year": null, "status": "planned"}, {"name": "Пульт. охрана", "tag": "Дом", "fact": 0, "plan": 17000.0, "date": "", "year": null, "status": "planned"}, {"name": "Интернет в доме", "tag": "Дом", "fact": 0, "plan": 16500.0, "date": "", "year": null, "status": "planned"}, {"name": "Мебель Икеа", "tag": "Мебель", "fact": 0, "plan": 500000.0, "date": "", "year": null, "status": "planned"}, {"name": "Дровница релакс зоны", "tag": "Инфрастр.", "fact": 0, "plan": 23000.0, "date": "", "year": null, "status": "planned"}, {"name": "Краска на фасад", "tag": "Дом", "fact": 0, "plan": 21600.0, "date": "", "year": null, "status": "planned"}, {"name": "Работы по окраске фасада", "tag": "Дом", "fact": 0, "plan": 25000.0, "date": "", "year": null, "status": "planned"}, {"name": "Краска на домик снаружи", "tag": "Домик", "fact": 0, "plan": 10000.0, "date": "", "year": null, "status": "planned"}, {"name": "Реставрация домика", "tag": "Домик", "fact": 0, "plan": 20000.0, "date": "", "year": null, "status": "planned"}, {"name": "Навес над гриль-зоной", "tag": "Инфрастр.", "fact": 0, "plan": 150000.0, "date": "", "year": null, "status": "planned"}, {"name": "Навес автомобильный", "tag": "Инфрастр.", "fact": 0, "plan": 250000.0, "date": "", "year": null, "status": "planned"}, {"name": "Банный комплекс", "tag": "Баня", "fact": 0, "plan": 400000.0, "date": "", "year": null, "status": "planned"}, {"name": "Хозблок у въезда", "tag": "Инфрастр.", "fact": 0, "plan": 100000.0, "date": "", "year": null, "status": "planned"}, {"name": "Хозблок у дома", "tag": "Инфрастр.", "fact": 0, "plan": 50000.0, "date": "", "year": null, "status": "planned"}, {"name": "Умный дом", "tag": "Дом", "fact": 0, "plan": 100000.0, "date": "", "year": null, "status": "planned"}, {"name": "Домик спорта и хобби", "tag": "Инфрастр.", "fact": 0, "plan": 200000.0, "date": "", "year": null, "status": "planned"}, {"name": "Поднятие участка", "tag": "Участок", "fact": 0, "plan": 500000.0, "date": "", "year": null, "status": "planned"}, {"name": "Untitled", "tag": "Без тега", "fact": 0, "plan": 0, "date": "", "year": null, "status": "empty"}];
+    const FACT_TOTAL = EXPENSES.reduce((s,e) => s + e.fact, 0);
+    const PLAN_TOTAL = EXPENSES.reduce((s,e) => s + e.plan, 0);
+    const GRAND_TOTAL = FACT_TOTAL + PLAN_TOTAL;
+    const COLORS = ['#3d6b4f','#d97742','#5b7c99','#9b6b8a','#c4a035','#6b8f71','#8d7a68','#4a6741','#b87c4f','#7a9e7e'];
+
+    const fmt = n => n >= 1e6 ? (n/1e6).toFixed(2)+' млн ₽' : n.toLocaleString('ru-RU')+' ₽';
+    const parseDate = d => { const m = d.match(/(\d{2})\/(\d{2})\/(\d{4})/); return m ? +m[3]+m[2]+m[1] : 9e15; };
+
+    let pieChart, barChart, topChart, lineChart;
+
+    function getFilters() {
+      return {
+        tag: document.getElementById('tagFilter').value,
+        year: document.getElementById('yearFilter').value,
+        status: document.getElementById('statusFilter').value,
+        search: document.getElementById('search').value.trim().toLowerCase(),
+        includePlanned: document.getElementById('includePlanned').checked,
+      };
+    }
+
+    function filterExpenses() {
+      const f = getFilters();
+      return EXPENSES.filter(e => {
+        if (f.tag !== 'all' && e.tag !== f.tag) return false;
+        if (f.year !== 'all' && e.year !== f.year) return false;
+        if (f.status !== 'all' && e.status !== f.status) return false;
+        if (!f.includePlanned && e.status === 'planned') return false;
+        if (f.search && !e.name.toLowerCase().includes(f.search) && !e.tag.toLowerCase().includes(f.search)) return false;
+        return true;
+      });
+    }
+
+    function renderStats(filtered) {
+      const ff = filtered.reduce((s,e) => s + e.fact, 0);
+      const fp = filtered.reduce((s,e) => s + e.plan, 0);
+      document.getElementById('stats').innerHTML = `
+        <div class="stat success"><div class="label">Оплачено (всего)</div><div class="value">${fmt(FACT_TOTAL)}</div></div>
+        <div class="stat warning"><div class="label">В плане</div><div class="value">${fmt(PLAN_TOTAL)}</div></div>
+        <div class="stat"><div class="label">Потенциальный итог</div><div class="value">${fmt(GRAND_TOTAL)}</div></div>
+        <div class="stat"><div class="label">В выборке</div><div class="value">${filtered.length} статей</div></div>`;
+      const note = document.getElementById('filterNote');
+      const f = getFilters();
+      if (f.tag !== 'all' || f.year !== 'all' || f.status !== 'all' || f.search)
+        note.textContent = `Фильтр: факт ${fmt(ff)}, план ${fmt(fp)}`;
+      else note.textContent = '';
+    }
+
+    function renderBudget() {
+      const bar = document.getElementById('budgetBar');
+      bar.innerHTML = `<div class="budget-fact" style="width:${(FACT_TOTAL/GRAND_TOTAL*100).toFixed(1)}%"></div><div class="budget-plan" style="width:${(PLAN_TOTAL/GRAND_TOTAL*100).toFixed(1)}%"></div>`;
+    }
+
+    function renderTable(filtered) {
+      const sorted = [...filtered].sort((a,b) => (b.fact||b.plan) - (a.fact||a.plan));
+      document.getElementById('tableCount').textContent = `(${sorted.length})`;
+      document.getElementById('tableBody').innerHTML = sorted.map(e => `
+        <tr class="${e.status}">
+          <td>${e.name}</td><td>${e.tag}</td>
+          <td class="num">${e.fact ? fmt(e.fact) : '—'}</td>
+          <td class="num">${e.plan ? fmt(e.plan) : '—'}</td>
+          <td>${e.date || '—'}</td>
+          <td>${e.status === 'paid' ? 'Оплачено' : e.status === 'planned' ? 'План' : '—'}</td>
+        </tr>`).join('');
+    }
+
+    function updateCharts(filtered) {
+      const byTag = {};
+      filtered.forEach(e => { if (e.fact > 0) byTag[e.tag] = (byTag[e.tag]||0) + e.fact; });
+      const tagEntries = Object.entries(byTag).sort((a,b) => b[1]-a[1]);
+
+      const years = [...new Set(EXPENSES.map(e => e.year).filter(Boolean))].sort();
+      const byYear = years.map(y => filtered.filter(e => e.year === y).reduce((s,e) => s + e.fact, 0));
+
+      const top = [...filtered].filter(e => e.fact > 0).sort((a,b) => b.fact - a.fact).slice(0, 10);
+
+      const cum = [...EXPENSES].filter(e => e.fact > 0 && e.date).sort((a,b) => parseDate(a.date)-parseDate(b.date));
+      let run = 0;
+      const cumLabels = [], cumData = [];
+      cum.forEach((e,i) => { run += e.fact; if (i % 4 === 0 || i === cum.length-1) { cumLabels.push(e.date); cumData.push(run); } });
+
+      const destroy = c => { if (c) c.destroy(); };
+      destroy(pieChart); destroy(barChart); destroy(topChart); destroy(lineChart);
+
+      const opts = { responsive: true, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } } };
+
+      if (tagEntries.length) {
+        pieChart = new Chart(document.getElementById('pieChart'), {
+          type: 'doughnut', data: { labels: tagEntries.map(x=>x[0]), datasets: [{ data: tagEntries.map(x=>x[1]), backgroundColor: COLORS }] },
+          options: { ...opts, plugins: { ...opts.plugins, tooltip: { callbacks: { label: ctx => fmt(ctx.raw) } } } }
+        });
+      }
+
+      if (byYear.some(v => v > 0)) {
+        barChart = new Chart(document.getElementById('barChart'), {
+          type: 'bar', data: { labels: years, datasets: [{ label: 'Факт, ₽', data: byYear, backgroundColor: '#5b7c99' }] },
+          options: { ...opts, scales: { y: { ticks: { callback: v => (v/1e6).toFixed(1)+'M' } } } }
+        });
+      }
+
+      if (top.length) {
+        topChart = new Chart(document.getElementById('topChart'), {
+          type: 'bar', data: { labels: top.map(e => e.name.length > 25 ? e.name.slice(0,23)+'…' : e.name), datasets: [{ label: 'Факт', data: top.map(e=>e.fact), backgroundColor: '#d97742' }] },
+          options: { indexAxis: 'y', ...opts, scales: { x: { ticks: { callback: v => (v/1e3).toFixed(0)+'K' } } } }
+        });
+      }
+
+      if (cumLabels.length) {
+        lineChart = new Chart(document.getElementById('lineChart'), {
+          type: 'line', data: { labels: cumLabels, datasets: [{ label: 'Кумулятив', data: cumData, borderColor: '#3d6b4f', backgroundColor: 'rgba(61,107,79,0.12)', fill: true, tension: 0.2 }] },
+          options: { ...opts, scales: { y: { ticks: { callback: v => (v/1e6).toFixed(1)+'M' } } } }
+        });
+      }
+    }
+
+    function render() {
+      const filtered = filterExpenses();
+      renderStats(filtered);
+      renderTable(filtered);
+      updateCharts(filtered);
+    }
+
+    // init filters
+    [...new Set(EXPENSES.map(e => e.tag))].sort().forEach(t => {
+      const o = document.createElement('option'); o.value = t; o.textContent = t;
+      document.getElementById('tagFilter').appendChild(o);
+    });
+    [...new Set(EXPENSES.map(e => e.year).filter(Boolean))].sort().forEach(y => {
+      const o = document.createElement('option'); o.value = y; o.textContent = y;
+      document.getElementById('yearFilter').appendChild(o);
+    });
+
+    ['tagFilter','yearFilter','statusFilter','search','includePlanned'].forEach(id => {
+      document.getElementById(id).addEventListener(id === 'includePlanned' ? 'change' : 'input', render);
+      if (id !== 'search') document.getElementById(id).addEventListener('change', render);
+    });
+
+    renderBudget();
+    render();
+  </script>
+</body>
+</html>
